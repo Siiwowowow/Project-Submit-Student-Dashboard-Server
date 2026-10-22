@@ -1,11 +1,14 @@
-enum Role{
-    SUPER_ADMIN
-    ADMIN
-    USER
+enum Role {
+  STUDENT
+  MENTOR
+  SUPER_ADMIN
+  ADMIN
+  USER
 }
-enum userStatus{
-    PENDING_VERIFICATION
-    BLOCKED
-    DELETED
-    ACTIVE
+
+enum userStatus {
+  PENDING_VERIFICATION
+  BLOCKED
+  DELETED
+  ACTIVE
 }

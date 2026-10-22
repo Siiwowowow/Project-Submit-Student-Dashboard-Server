@@ -1,92 +1,48 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-import { NextFunction, Request, Response } from "express";
-import status from "http-status";
-import z from "zod";
-import { deleteFileFromCloudinary } from "../config/cloudinary.config.js";
-import { envVars } from "../config/env.js";
+﻿import { ErrorRequestHandler } from "express";
+import { Prisma } from "@prisma/client";
+import { ZodError } from "zod";
 import AppError from "../errorHelpers/AppError.js";
-import { handleZodError } from "../errorHelpers/handleZodError.js";
-import { TErrorResponse, TErrorSources } from "../interfaces/error.interface.js";
+import { envVars } from "../config/env.js";
 
+export const globalErrorHandler: ErrorRequestHandler = (error: unknown, _req, res, next) => {
+  if (res.headersSent) return next(error);
+  let statusCode = 500;
+  let message = "Something went wrong. Please try again later.";
+  let errorSources: { path: string; message: string }[] = [];
 
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const globalErrorHandler = async (err: any, req: Request, res: Response, next: NextFunction) => {
-    if (envVars.NODE_ENV === 'development') {
-        console.log("Error from Global Error Handler", err);
+  if (error instanceof ZodError) {
+    statusCode = 400;
+    message = "Validation failed.";
+    errorSources = error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message }));
+  } else if (error instanceof AppError) {
+    statusCode = error.statusCode;
+    message = error.message;
+  } else if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    // A database constraint also catches simultaneous duplicate requests.
+    if (error.code === "P2002") {
+      statusCode = 409;
+      message = "This email or repository has already been registered.";
+    } else if (error.code === "P2025") {
+      statusCode = 404;
+      message = "The requested record was not found.";
     }
-
-    if(req.file){
-        await deleteFileFromCloudinary(req.file.path)
+  } else if (error && typeof error === "object" && "type" in error) {
+    if (error.type === "entity.parse.failed") {
+      statusCode = 400;
+      message = "Request body must contain valid JSON.";
+    } else if (error.type === "entity.too.large") {
+      statusCode = 413;
+      message = "Request body is too large.";
     }
+  }
 
-    if(req.files && Array.isArray(req.files) && req.files.length > 0){
-        const imageUrls = req.files.map((file) => file.path);
-        await Promise.all(imageUrls.map(url => deleteFileFromCloudinary(url))); 
-    }
-
-    let errorSources: TErrorSources[] = []
-    let statusCode: number = status.INTERNAL_SERVER_ERROR;
-    let message: string = 'Internal Server Error';
-    let stack: string | undefined = undefined;
-
-    //Zod Error Patttern
-    /*
-     error.issues; 
-    /* [
-      {
-        expected: 'string',
-        code: 'invalid_type',
-        path: [ 'username' , 'password' ], => username password
-        message: 'Invalid input: expected string'
-      },
-      {
-        expected: 'number',
-        code: 'invalid_type',
-        path: [ 'xp' ],
-        message: 'Invalid input: expected number'
-      }
-    ] 
-    */
-
-    if (err instanceof z.ZodError) {
-        const simplifiedError = handleZodError(err);
-        statusCode = simplifiedError.statusCode as number
-        message = simplifiedError.message
-        errorSources = [...simplifiedError.errorSources]
-        stack = err.stack;
-
-    } else if (err instanceof AppError) {
-        statusCode = err.statusCode;
-        message = err.message;
-        stack = err.stack;
-        errorSources = [
-            {
-                path: '',
-                message: err.message
-            }
-        ]
-    }
-    else if (err instanceof Error) {
-        statusCode = status.INTERNAL_SERVER_ERROR;
-        message = err.message
-        stack = err.stack;
-        errorSources = [
-            {
-                path: '',
-                message: err.message
-            }
-        ]
-    }
-
-
-    const errorResponse: TErrorResponse = {
-        success: false,
-        message: message,
-        errorSources,
-        error: envVars.NODE_ENV === 'development' ? err : undefined,
-        stack: envVars.NODE_ENV === 'development' ? stack : undefined,
-    }
-
-    res.status(statusCode).json(errorResponse);
-}
+  if (envVars.NODE_ENV === "development") {
+    console.error(`[Error ${statusCode}] ${message}`);
+    if (errorSources.length) console.error("Validation details:", errorSources);
+  }
+  if (statusCode === 500) console.error(error);
+  res.status(statusCode).json({
+    success: false, message, errorSources,
+    ...(envVars.NODE_ENV === "development" && error instanceof Error ? { stack: error.stack } : {}),
+  });
+};

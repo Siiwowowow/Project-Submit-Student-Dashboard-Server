@@ -1,30 +1,13 @@
-//src/app/module/auth/auth.route.ts
-import { Router } from "express";
-import { AuthController } from "./auth.controller.js";
+﻿import { Router } from "express";
 import { checkAuth } from "../../middleware/checkAuth.js";
-import { Role } from "@prisma/client";
-import { multerUpload } from "../../config/multer.config.js";
+import { authRateLimit } from "../../middleware/rateLimit.js";
+import { validateRequest } from "../../middleware/validateRequest.js";
+import { AuthController } from "./auth.controller.js";
+import { loginSchema, registerSchema } from "./auth.validation.js";
 
 const router = Router();
+router.post("/register", authRateLimit, validateRequest(registerSchema), AuthController.registerUser);
+router.post("/login", authRateLimit, validateRequest(loginSchema), AuthController.loginUser);
+router.get("/me", checkAuth(), AuthController.getMe);
 
-router.post(
-  "/register",
-  multerUpload.fields([{ name: "profilePhoto", maxCount: 1 }]),
-  AuthController.registerUser
-);
-router.post("/login", AuthController.loginUser);
-router.post("/logout", AuthController.logoutUser);
-router.get("/me", checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.USER), AuthController.getMe)
-router.post("/refresh-token", AuthController.getNewToken)
-router.post(
-  "/change-password",
-  checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.USER),
-  AuthController.changePassword
-);
-router.post("/verify-email", AuthController.verifyEmail);
-router.post("/forget-password", AuthController.forgetPassword);
-router.post("/reset-password", AuthController.resetPassword);
-router.get("/login/google", AuthController.googleLogin);
-router.get("/google/success", AuthController.googleLoginSuccess);
-router.get("/oauth/error", AuthController.handleOAuthError);
 export const AuthRouters = router;

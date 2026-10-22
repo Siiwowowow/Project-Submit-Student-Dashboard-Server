@@ -73,7 +73,7 @@ const deleteAdmin = async (id: string, user: IRequestUser) => {
         throw new AppError(status.BAD_REQUEST, "You cannot delete yourself");
     }
 
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx) => {
         await tx.admin.update({
             where: { id },
             data: {

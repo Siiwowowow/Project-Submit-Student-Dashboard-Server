@@ -1,0 +1,119 @@
+﻿@baseUrl = http://localhost:5000/api/v1
+@studentToken = paste-student-access-token-here
+@reviewerToken = paste-admin-or-mentor-access-token-here
+@projectId = paste-project-id-here
+
+### Student signup
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Student Name",
+  "email": "student@example.com",
+  "password": "StrongPassword123!"
+}
+
+### Student login: copy data.accessToken to studentToken above
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "student@example.com",
+  "password": "StrongPassword123!"
+}
+
+### Admin login: use the credentials configured for your database seed
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "replace-with-your-admin-password"
+}
+
+### Current profile
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{studentToken}}
+
+### Submit a project
+POST {{baseUrl}}/projects
+Authorization: Bearer {{studentToken}}
+Content-Type: application/json
+
+{
+  "name": "Project Review Dashboard",
+  "repoUrl": "https://github.com/student/project-dashboard",
+  "backendRepoUrl": "https://github.com/student/project-dashboard-server",
+  "liveLink": "https://project-dashboard.example.com",
+  "description": "A dashboard for students to submit projects and mentors to review their work."
+}
+
+### Own submissions
+GET {{baseUrl}}/projects/mine?page=1&limit=10
+Authorization: Bearer {{studentToken}}
+
+### Review table: omit status to see all projects
+GET {{baseUrl}}/projects?page=1&limit=10&status=PENDING
+Authorization: Bearer {{reviewerToken}}
+
+### Approved projects
+GET {{baseUrl}}/projects?page=1&limit=10&status=APPROVED
+Authorization: Bearer {{reviewerToken}}
+
+### Rejected projects
+GET {{baseUrl}}/projects?page=1&limit=10&status=REJECTED
+Authorization: Bearer {{reviewerToken}}
+
+### Overall statistics
+GET {{baseUrl}}/projects/stats
+Authorization: Bearer {{reviewerToken}}
+
+### Project details
+GET {{baseUrl}}/projects/{{projectId}}
+Authorization: Bearer {{reviewerToken}}
+
+### Approve a pending project
+PATCH {{baseUrl}}/projects/{{projectId}}/review
+Authorization: Bearer {{reviewerToken}}
+Content-Type: application/json
+
+{
+  "status": "APPROVED",
+  "score": 45,
+  "scoreOutOf": 60,
+  "reviewComment": "The project meets the requirements."
+}
+
+### Reject a pending project
+PATCH {{baseUrl}}/projects/{{projectId}}/review
+Authorization: Bearer {{reviewerToken}}
+Content-Type: application/json
+
+{
+  "status": "REJECTED",
+  "reviewComment": "Please improve the README and fix the live link."
+}
+
+### Student statistics, including average marks
+GET {{baseUrl}}/projects/mine/stats
+Authorization: Bearer {{studentToken}}
+
+### Mark an already reviewed project with a custom total
+PATCH {{baseUrl}}/projects/{{projectId}}/marks
+Authorization: Bearer {{reviewerToken}}
+Content-Type: application/json
+
+{ "score": 40, "scoreOutOf": 50 }
+
+### Edit mentor feedback for a reviewed project
+PATCH {{baseUrl}}/projects/{{projectId}}/feedback
+Authorization: Bearer {{reviewerToken}}
+Content-Type: application/json
+
+{
+  "reviewComment": "Fix keyboard navigation and update the README.",
+  "reviewCommentFormat": [
+    { "text": "Fix keyboard navigation", "bold": true, "underline": true, "color": "red" },
+    { "text": " and update the README.", "bold": true, "underline": false, "color": "default" }
+  ]
+}

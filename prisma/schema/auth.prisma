@@ -1,25 +1,27 @@
 //src/prisma/schema/auth.prisma
 model User {
-  id                 String   @id @default(uuid())
-  email              String   @unique
-  name               String?
-  emailVerified      Boolean  @default(false)
-  image              String?
+  id            String  @id @default(uuid())
+  email         String  @unique
+  name          String?
+  emailVerified Boolean @default(false)
+  image         String?
 
-  role               Role     @default(USER)
-  status             String   @default("ACTIVE")
+  role   Role   @default(STUDENT)
+  status String @default("ACTIVE")
 
-  needPasswordChange Boolean  @default(false)
-  isDeleted          Boolean  @default(false)
+  needPasswordChange Boolean   @default(false)
+  isDeleted          Boolean   @default(false)
   deletedAt          DateTime?
 
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  admin              Admin?   // 👈 relation (optional)
+  admin Admin? // 👈 relation (optional)
 
-  sessions           Session[]
-  accounts           Account[]
+  sessions         Session[]
+  accounts         Account[]
+  projects         Project[] @relation("StudentProjects")
+  reviewedProjects Project[] @relation("ProjectReviewer")
 
   @@map("user")
 }

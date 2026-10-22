@@ -38,7 +38,7 @@ export const auth = betterAuth({
         clientId: envVars.GOOGLE_CLIENT_ID,
         clientSecret: envVars.GOOGLE_CLIENT_SECRET,
         callbackURL: envVars.GOOGLE_CALLBACK_URL,
-        mapProfileToUser: (profile: any) => {
+        mapProfileToUser: (profile) => {
             return {
                 role : Role.USER,
                 status : userStatus.ACTIVE,
@@ -46,7 +46,7 @@ export const auth = betterAuth({
                 emailVerified : true,
                 isDeleted : false,
                 deletedAt : null,
-                image: profile.picture || profile.avatar || null,
+                image: profile.picture || undefined,
             }
         }
     }

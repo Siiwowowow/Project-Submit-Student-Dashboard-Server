@@ -1,81 +1,38 @@
-//src/app/config/seed.ts
-//src/app/config/seed.ts
+﻿import { randomUUID } from "node:crypto";
 import { Role } from "@prisma/client";
-import { envVars } from "../config/env.js";
-import { auth } from "../lib/auth.js";
+import { hashPassword } from "better-auth/crypto";
+import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 
 export const seedSuperAdmin = async () => {
-  try {
-    // 🧹 CLEANUP: Delete duplicate/broken accounts (temporary)
-    const cleanup = await prisma.account.deleteMany({
-      where: {
-        providerId: "credential",
-        OR: [
-          { password: null },
-          { id: { startsWith: "account_" } }
-        ]
-      }
-    });
-    if (cleanup.count > 0) {
-      console.log(`🧹 Cleaned up ${cleanup.count} broken account records.`);
+  const email = z.string().trim().toLowerCase().email().parse(
+    process.env.ADMIN_EMAIL || process.env.SUPER_ADMIN_EMAIL,
+  );
+  const password = z.string().min(8).max(128).parse(
+    process.env.ADMIN_PASSWORD || process.env.SUPER_ADMIN_PASSWORD,
+  );
+  const existing = await prisma.user.findUnique({ where: { email } });
+
+  // Never promote an existing student or reset a password silently.
+  if (existing) {
+    if (existing.role !== Role.ADMIN && existing.role !== Role.SUPER_ADMIN) {
+      throw new Error("Admin email belongs to another account. Choose a different ADMIN_EMAIL.");
     }
-
-    // ✅ CHECK IN ADMIN TABLE (BEST SOURCE OF TRUTH)
-    const exists = await prisma.admin.findFirst({
-      where: {
-        email: envVars.SUPER_ADMIN_EMAIL,
-      },
-    });
-
-    if (exists) {
-      console.log("Super admin already exists. Skipping...");
-      return;
-    }
-
-    // 1️⃣ CREATE USER
-    const superAdminUser = await auth.api.signUpEmail({
-      body: {
-        email: envVars.SUPER_ADMIN_EMAIL,
-        password: envVars.SUPER_ADMIN_PASSWORD,
-        name: "Super Admin",
-        // @ts-ignore - custom fields type issue in seed
-        role: Role.SUPER_ADMIN,
-        // @ts-ignore
-        needPasswordChange: false,
-      },
-    });
-
-    if (!superAdminUser?.user?.id) {
-      throw new Error("Failed to create super admin user");
-    }
-
-    // 2️⃣ CREATE ADMIN + USER UPDATE (ATOMIC)
-    const result = await prisma.$transaction(async (tx: any) => {
-      await tx.user.update({
-        where: {
-          id: superAdminUser.user.id,
-        },
-        data: {
-          emailVerified: true,
-          status: "ACTIVE",
-        },
-      });
-
-      const admin = await tx.admin.create({
-        data: {
-          name: "Super Admin",
-          email: envVars.SUPER_ADMIN_EMAIL,
-          userId: superAdminUser.user.id,
-         
-        },
-      });
-
-      return admin;
-    });
-
-    console.log("🔥 Super Admin Created Successfully:", result);
-  } catch (error) {
-    console.error("❌ Error seeding super admin:", error);
+    console.log("Admin already exists. No changes made.");
+    return;
   }
+
+  const userId = randomUUID();
+  const hashedPassword = await hashPassword(password);
+  await prisma.user.create({
+    data: {
+      id: userId, name: "Review Admin", email, role: Role.ADMIN, status: "ACTIVE",
+      emailVerified: true,
+      accounts: { create: {
+        id: randomUUID(), accountId: userId, providerId: "credential", password: hashedPassword,
+      } },
+      admin: { create: { name: "Review Admin", email } },
+    },
+  });
+  console.log("Review admin created successfully.");
 };

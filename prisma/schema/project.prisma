@@ -1,0 +1,31 @@
+enum ProjectStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Project {
+  id            String        @id @default(uuid())
+  name          String
+  repoUrl       String        @unique
+  backendRepoUrl String?
+  liveLink      String
+  description   String
+  status        ProjectStatus @default(PENDING)
+  scoreOutOf    Int           @default(100)
+  score         Int?
+  reviewCommentFormat Json?
+  reviewComment String?
+  reviewedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  studentId    String
+  student      User    @relation("StudentProjects", fields: [studentId], references: [id], onDelete: Restrict)
+  reviewedById String?
+  reviewedBy   User?   @relation("ProjectReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([studentId, createdAt])
+  @@map("projects")
+}
