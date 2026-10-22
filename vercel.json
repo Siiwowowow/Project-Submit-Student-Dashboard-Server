@@ -1,5 +1,6 @@
-﻿{
-  "version": 2,
-  "builds": [{ "src": "src/app.ts", "use": "@vercel/node" }],
-  "routes": [{ "src": "/(.*)", "dest": "src/app.ts" }]
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "express",
+  "installCommand": "npx --yes pnpm@12.14.0 install --frozen-lockfile",
+  "buildCommand": "npx --yes pnpm@12.14.0 run build"
 }

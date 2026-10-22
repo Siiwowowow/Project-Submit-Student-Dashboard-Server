@@ -1,0 +1,7 @@
+# These locked dependencies need their installation scripts for native binaries
+# and Prisma generation in clean local and Vercel builds.
+allowBuilds:
+  '@prisma/engines': true
+  bcrypt: true
+  esbuild: true
+  prisma: true

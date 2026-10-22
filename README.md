@@ -223,3 +223,11 @@ Development and production builds generate Prisma Client before starting/compili
 Reviewers set `scoreOutOf` (integer 1 to 10,000) and `score` (integer 0 to `scoreOutOf`) per project. Both review and marks-update requests accept `scoreOutOf`; omission defaults to 100 for older clients. Existing marks retain a total of 100. Student submissions cannot set marks or totals. Project responses include `scoreOutOf`, displayed alongside the obtained score, e.g. 45 / 60.
 
 `averageScore` is the arithmetic mean of each marked project's percentage: AVG(score / scoreOutOf * 100). All marked projects contribute equally; zero marks count and unmarked projects are excluded. For example, 45/60, 40/50, and 25/30 average to 79.44%. The dashboard shows the average as a percentage so projects with different totals remain comparable.
+
+## Vercel deployment
+
+The project uses Vercel's Express framework preset with `src/app.ts` as the default-export entry point. Do not add legacy `builds`/`routes` configuration: it overrides framework build settings.
+
+`vercel.json` pins dependency installation and builds to pnpm 12.14.0, matching `package.json` and the multi-document lockfile. Older pnpm versions can read only the package-manager section and report an empty install, leading to `Cannot find module express` at runtime. Keep the pinned version aligned when upgrading pnpm. `pnpm-workspace.yaml` explicitly allows the required Prisma, bcrypt and esbuild installation scripts so clean CI installs complete under pnpm's strict build policy.
+
+Set the production environment variables listed in `.env.example` in Vercel. Source uploads exclude local dependencies, compiled output, tests and `.env` files through `.vercelignore`. Deploy with `vercel --prod`; after fixing dependency installation, use `vercel --prod --force` once to avoid the previous broken build cache. Check `/` for HTTP 200 and `/api/v1/auth/me` without a token for HTTP 401.
