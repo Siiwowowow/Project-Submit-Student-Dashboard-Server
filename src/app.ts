@@ -11,7 +11,7 @@ app.disable("x-powered-by");
 if (envVars.NODE_ENV === "development") app.use(requestLogger);
 // Configure this only when the deployment has a known reverse-proxy hop count.
 if (envVars.TRUST_PROXY_HOPS) app.set("trust proxy", envVars.TRUST_PROXY_HOPS);
-app.use(cors({ origin: envVars.FRONTEND_URL, methods: ["GET", "POST", "PATCH"] }));
+app.use(cors({ origin: envVars.FRONTEND_URL, methods: ["GET", "POST", "PATCH", "DELETE"] }));
 app.use(express.json({ limit: "32kb" }));
 
 app.get("/", (_req, res) => {

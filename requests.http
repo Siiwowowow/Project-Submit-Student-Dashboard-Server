@@ -117,3 +117,26 @@ Content-Type: application/json
     { "text": " and update the README.", "bold": true, "underline": false, "color": "default" }
   ]
 }
+
+### Admin: edit a project, decision, marks and feedback
+PATCH {{baseUrl}}/projects/{{projectId}}
+Authorization: Bearer {{reviewerToken}}
+Content-Type: application/json
+
+{
+  "name": "Project Review Dashboard",
+  "repoUrl": "https://github.com/student/project-dashboard",
+  "backendRepoUrl": "https://github.com/student/project-dashboard-server",
+  "liveLink": "https://project-dashboard.example.com",
+  "description": "A dashboard for students to submit projects and mentors to review their work.",
+  "status": "APPROVED", "score": 45, "scoreOutOf": 60,
+  "reviewComment": "Admin corrected this review."
+}
+
+### Admin only: remove a project (permanent)
+DELETE {{baseUrl}}/projects/{{projectId}}
+Authorization: Bearer {{reviewerToken}}
+
+### Admin only: search and paginate accounts
+GET {{baseUrl}}/users?page=1&limit=10&search=mentor
+Authorization: Bearer {{reviewerToken}}

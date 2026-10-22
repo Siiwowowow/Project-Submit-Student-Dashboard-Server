@@ -1,8 +1,9 @@
 ﻿import assert from "node:assert/strict";
 import { test } from "node:test";
+import { updateUserSchema, userListSchema } from "../src/app/module/management/user.validation.js";
 import { registerSchema } from "../src/app/module/auth/auth.validation.js";
 import {
-  createProjectSchema, normalizeRepoUrl, projectListSchema, reviewProjectSchema, projectMarksSchema, updateFeedbackSchema,
+  createProjectSchema, normalizeRepoUrl, projectListSchema, reviewProjectSchema, projectMarksSchema, updateFeedbackSchema, updateProjectSchema,
 } from "../src/app/module/project/project.validation.js";
 
 const validProject = {
@@ -144,4 +145,14 @@ test("project totals support 60, 50, 30 and bound obtained marks", () => {
   }
   assert.equal(projectMarksSchema.parse({ score: 85 }).scoreOutOf, 100);
   assert.equal(createProjectSchema.safeParse({ ...validProject, scoreOutOf: 60 }).success, false);
+});
+
+test("admin project and account forms reject injected fields and invalid values", () => {
+  assert.equal(updateProjectSchema.safeParse({ ...validProject, status: "PENDING", score: null, scoreOutOf: 60 }).success, true);
+  assert.equal(updateProjectSchema.safeParse({ ...validProject, status: "APPROVED", score: 61, scoreOutOf: 60 }).success, false);
+  assert.equal(updateProjectSchema.safeParse({ ...validProject, status: "APPROVED", studentId: "injected" }).success, false);
+  const user = { name: "Mentor Name", email: "mentor@example.com", role: "MENTOR", status: "ACTIVE" };
+  assert.equal(updateUserSchema.safeParse(user).success, true);
+  for (const changes of [{ role: "OWNER" }, { password: "short" }, { status: "INVALID" }, { isDeleted: true }]) assert.equal(updateUserSchema.safeParse({ ...user, ...changes }).success, false);
+  assert.equal(userListSchema.safeParse({ limit: 101 }).success, false);
 });

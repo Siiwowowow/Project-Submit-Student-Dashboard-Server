@@ -37,7 +37,7 @@ test("dashboard API with real PostgreSQL", { timeout: 120000 }, async (t) => {
     const database = await import("../src/app/lib/prisma.js");
     prisma = database.prisma;
     const { default: app } = await import("../src/app.js");
-    const { seedSuperAdmin } = await import("../src/app/config/seed.js");
+    const { seedSuperAdmin, seedMentor } = await import("../src/app/config/seed.js");
     server = app.listen(0, "127.0.0.1");
     await once(server, "listening");
     const address = server.address() as import("node:net").AddressInfo;
@@ -259,6 +259,79 @@ test("dashboard API with real PostgreSQL", { timeout: 120000 }, async (t) => {
       const studentView = await request("/projects/" + firstId, "GET", undefined, tokenA);
       assert.equal(studentView.body.data.score, 45);
       assert.equal(studentView.body.data.scoreOutOf, 60);
+    });
+
+    await t.test("mentor seed is repeatable, logs in as mentor and cannot promote a student", async () => {
+      process.env.MENTOR_EMAIL = "seeded-mentor@integration.example";
+      process.env.MENTOR_PASSWORD = "MentorTestPassword123!";
+      await seedMentor();
+      process.env.MENTOR_PASSWORD = "DifferentSeedPassword123!";
+      await seedMentor();
+      const login = await request("/auth/login", "POST", { email: process.env.MENTOR_EMAIL, password: "MentorTestPassword123!" });
+      assert.equal(login.status, 200);
+      assert.equal(login.body.data.user.role, "MENTOR");
+      assert.equal((await request("/projects/stats", "GET", undefined, login.body.data.accessToken)).status, 200);
+      assert.equal(await prisma!.user.count({ where: { email: process.env.MENTOR_EMAIL } }), 1);
+      process.env.MENTOR_EMAIL = "student-a@integration.example";
+      await assert.rejects(seedMentor(), /belongs to another account/);
+      assert.equal((await prisma!.user.findUniqueOrThrow({ where: { id: studentAId } })).role, "STUDENT");
+    });
+
+    await t.test("admin can edit, reopen and delete projects; mentor and student cannot", async () => {
+      const login = await request("/auth/login", "POST", { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD });
+      assert.equal(login.status, 200);
+      const token = login.body.data.accessToken;
+      const input = { ...projectBody("admin-edited"), status: "REJECTED", score: 20, scoreOutOf: 30, reviewComment: "Admin corrected this review." };
+      const path = "/projects/" + firstId;
+      assert.equal((await request(path, "PATCH", input, mentorToken)).status, 403);
+      assert.equal((await request(path, "PATCH", input, tokenA)).status, 403);
+      assert.equal((await request(path, "DELETE", undefined, mentorToken)).status, 403);
+      assert.equal((await request(path, "PATCH", { ...input, studentId: studentAId }, token)).status, 400);
+      const edited = await request(path, "PATCH", input, token);
+      assert.equal(edited.status, 200);
+      assert.equal(edited.body.data.score, 20);
+      assert.equal(edited.body.data.scoreOutOf, 30);
+      assert.equal(edited.body.data.reviewComment, input.reviewComment);
+      const reopened = await request(path, "PATCH", { ...input, status: "PENDING" }, token);
+      assert.equal(reopened.status, 200);
+      for (const key of ["score", "reviewComment", "reviewCommentFormat", "reviewedAt", "reviewedBy"]) assert.equal(reopened.body.data[key], null);
+      const before = await request("/projects/stats", "GET", undefined, token);
+      assert.equal((await request(path, "DELETE", undefined, token)).status, 200);
+      assert.equal((await request(path, "GET", undefined, token)).status, 404);
+      const after = await request("/projects/stats", "GET", undefined, token);
+      assert.equal(after.body.data.totalProjects, before.body.data.totalProjects - 1);
+    });
+
+    await t.test("admin manages users; reviewer access is restricted and self-lockout is blocked", async () => {
+      const login = await request("/auth/login", "POST", { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD });
+      assert.equal(login.status, 200);
+      const token = login.body.data.accessToken;
+      const adminId = login.body.data.user.id;
+      assert.equal((await request("/users", "GET", undefined, mentorToken)).status, 403);
+      assert.equal((await request("/users", "GET", undefined, tokenA)).status, 403);
+      const candidate = await signup("managed@integration.example");
+      assert.equal(candidate.status, 201);
+      const id = candidate.body.data.user.id;
+      const input = { name: "Managed Mentor", email: "managed@integration.example", role: "MENTOR", status: "ACTIVE", password: "NewManagedPassword123!" };
+      assert.equal((await request("/users/" + id, "PATCH", input, mentorToken)).status, 403);
+      const edited = await request("/users/" + id, "PATCH", input, token);
+      assert.equal(edited.status, 200);
+      assert.equal(edited.body.data.role, "MENTOR");
+      assert.equal(Object.hasOwn(edited.body.data, "password"), false);
+      const users = await request("/users?search=managed&limit=1", "GET", undefined, token);
+      assert.equal(users.body.data.pagination.total, 1);
+      assert.equal(users.body.data.users.length, 1);
+      assert.equal(Object.hasOwn(users.body.data.users[0], "accounts"), false);
+      const changedLogin = await request("/auth/login", "POST", { email: input.email, password: input.password });
+      assert.equal(changedLogin.status, 200);
+      assert.equal((await request("/users/" + id, "PATCH", { ...input, status: "BLOCKED" }, token)).status, 200);
+      assert.equal((await request("/auth/me", "GET", undefined, changedLogin.body.data.accessToken)).status, 401);
+      assert.equal((await request("/users/" + adminId, "DELETE", undefined, token)).status, 400);
+      assert.equal((await request("/users/" + adminId, "PATCH", { ...input, email: process.env.ADMIN_EMAIL, role: "STUDENT" }, token)).status, 400);
+      assert.equal((await request("/users/" + id, "DELETE", undefined, token)).status, 200);
+      const deleted = await prisma!.user.findUniqueOrThrow({ where: { id } });
+      assert.equal(deleted.isDeleted, true);
+      assert.equal((await request("/auth/me", "GET", undefined, changedLogin.body.data.accessToken)).status, 401);
     });
 
     await t.test("rate limits and current account status are enforced", async () => {

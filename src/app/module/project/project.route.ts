@@ -4,7 +4,7 @@ import { checkAuth } from "../../middleware/checkAuth.js";
 import { submissionRateLimit } from "../../middleware/rateLimit.js";
 import { validateRequest } from "../../middleware/validateRequest.js";
 import { ProjectController } from "./project.controller.js";
-import { createProjectSchema, reviewProjectSchema, projectMarksSchema, updateFeedbackSchema } from "./project.validation.js";
+import { createProjectSchema, reviewProjectSchema, projectMarksSchema, updateFeedbackSchema, updateProjectSchema } from "./project.validation.js";
 
 const router = Router();
 const reviewers = [Role.MENTOR, Role.ADMIN, Role.SUPER_ADMIN];
@@ -27,5 +27,9 @@ router.patch("/:id/marks", checkAuth(...reviewers),
 
 router.patch("/:id/feedback", checkAuth(...reviewers),
   validateRequest(updateFeedbackSchema), ProjectController.updateFeedback);
+
+router.patch("/:id", checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+  validateRequest(updateProjectSchema), ProjectController.updateProject);
+router.delete("/:id", checkAuth(Role.ADMIN, Role.SUPER_ADMIN), ProjectController.deleteProject);
 
 export const ProjectRoutes = router;

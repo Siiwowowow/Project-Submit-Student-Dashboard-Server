@@ -1,7 +1,7 @@
 ﻿import { Prisma, ProjectStatus } from "@prisma/client";
 import AppError from "../../errorHelpers/AppError.js";
 import { prisma } from "../../lib/prisma.js";
-import { CreateProjectInput, ProjectListQuery, ReviewProjectInput, UpdateFeedbackInput, ProjectMarksInput } from "./project.validation.js";
+import { CreateProjectInput, ProjectListQuery, ReviewProjectInput, UpdateFeedbackInput, ProjectMarksInput, UpdateProjectInput } from "./project.validation.js";
 
 const projectRelations = {
   student: { select: { id: true, name: true, email: true } },
@@ -113,4 +113,26 @@ const updateFeedback = async (id: string, reviewerId: string, payload: UpdateFee
   });
 };
 
-export const ProjectService = { createProject, getProjects, getStatistics, getProject, reviewProject, markProject, updateFeedback };
+// Only the admin routes can call these management operations.
+const updateProject = async (id: string, adminId: string, payload: UpdateProjectInput) => {
+  const pending = payload.status === ProjectStatus.PENDING;
+  return prisma.project.update({
+    where: { id },
+    data: {
+      name: payload.name, repoUrl: payload.repoUrl, backendRepoUrl: payload.backendRepoUrl ?? null,
+      liveLink: payload.liveLink, description: payload.description, status: payload.status,
+      scoreOutOf: payload.scoreOutOf, score: pending ? null : payload.score,
+      reviewComment: pending ? null : payload.reviewComment || null,
+      reviewCommentFormat: pending ? Prisma.DbNull : payload.reviewCommentFormat ?? Prisma.DbNull,
+      reviewedById: pending ? null : adminId, reviewedAt: pending ? null : new Date(),
+    },
+    include: projectRelations,
+  });
+};
+
+const deleteProject = async (id: string) => {
+  await prisma.project.delete({ where: { id } });
+  return { id };
+};
+
+export const ProjectService = { createProject, getProjects, getStatistics, getProject, reviewProject, markProject, updateFeedback, updateProject, deleteProject };

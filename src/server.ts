@@ -2,7 +2,7 @@
 import app from "./app.js";
 import { envVars } from "./app/config/env.js";
 import { prisma } from "./app/lib/prisma.js";
-import { seedSuperAdmin } from "./app/config/seed.js";
+import { seedWorkspaceAccounts } from "./app/config/seed.js";
 
 let server: Server | undefined;
 let shuttingDown = false;
@@ -38,15 +38,8 @@ try {
   await prisma.$connect();
   console.log("[Database] PostgreSQL connected successfully.");
 
-  // Create the configured admin once; later restarts keep the existing account.
-  const adminEmail = process.env.ADMIN_EMAIL || process.env.SUPER_ADMIN_EMAIL;
-  const adminPassword = process.env.ADMIN_PASSWORD || process.env.SUPER_ADMIN_PASSWORD;
-  if (adminEmail || adminPassword) {
-    console.log("[Admin] Checking the seeded admin account...");
-    await seedSuperAdmin();
-  } else {
-    console.log("[Admin] Seed skipped. Set ADMIN_EMAIL and ADMIN_PASSWORD in .env to create an admin.");
-  }
+  // Repeatable seeds keep configured admin and mentor accounts ready.
+  await seedWorkspaceAccounts();
 
   server = app.listen(Number(envVars.PORT));
   // Log success only after the server actually binds to the port.

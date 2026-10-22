@@ -109,3 +109,15 @@ export type ReviewProjectInput = z.infer<typeof reviewProjectSchema>;
 export type UpdateFeedbackInput = z.infer<typeof updateFeedbackSchema>;
 
 export type ProjectMarksInput = z.infer<typeof projectMarksSchema>;
+
+// Admin edits submit the complete form; students cannot call this endpoint.
+export const updateProjectSchema = createProjectSchema.extend({
+  status: z.enum(ProjectStatus),
+  score: z.number().int().min(0).max(10000).nullable().default(null),
+  scoreOutOf: z.number().int().min(1).max(10000).default(100),
+  reviewComment: z.string().trim().max(1000).nullable().optional(),
+  reviewCommentFormat: feedbackFormat,
+}).strict().refine(data => data.score === null || data.score <= data.scoreOutOf, {
+  message: "Marks cannot exceed the total marks.", path: ["score"],
+}).refine(data => !data.reviewCommentFormat || data.reviewCommentFormat.map(run => run.text).join("") === data.reviewComment, formatError);
+export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;

@@ -231,3 +231,11 @@ The project uses Vercel's Express framework preset with `src/app.ts` as the defa
 `vercel.json` pins dependency installation and builds to pnpm 12.14.0, matching `package.json` and the multi-document lockfile. Older pnpm versions can read only the package-manager section and report an empty install, leading to `Cannot find module express` at runtime. Keep the pinned version aligned when upgrading pnpm. `pnpm-workspace.yaml` explicitly allows the required Prisma, bcrypt and esbuild installation scripts so clean CI installs complete under pnpm's strict build policy.
 
 Set the production environment variables listed in `.env.example` in Vercel. Source uploads exclude local dependencies, compiled output, tests and `.env` files through `.vercelignore`. Deploy with `vercel --prod`; after fixing dependency installation, use `vercel --prod --force` once to avoid the previous broken build cache. Check `/` for HTTP 200 and `/api/v1/auth/me` without a token for HTTP 401.
+
+## Mentor and administrator controls
+
+Set `MENTOR_EMAIL`, `MENTOR_PASSWORD` and optional `MENTOR_NAME` in `.env`, then run `pnpm seed`. Admin seeding continues to use `ADMIN_EMAIL`/`ADMIN_PASSWORD` (with the existing SUPER_ADMIN aliases supported). Seeds are repeatable and never promote an existing student or silently reset a password. The local server seeds configured accounts at startup; run the seed command explicitly against the deployment environment for Vercel.
+
+Mentors use the existing paginated project endpoints, server-side status filters and aggregated counts. Only ADMIN/SUPER_ADMIN may `PATCH /projects/:id` or `DELETE /projects/:id`. Admin edits can change the project details, decision, marks and feedback. Reopening a project as PENDING clears the old marks, reviewer and feedback. Deleting a project permanently removes that submission.
+
+Admin-only `GET /users` returns paginated public account details (page, limit, optional search), excluding deleted accounts. `PATCH /users/:id` edits name, email, role, ACTIVE/BLOCKED status and an optional new password. `DELETE /users/:id` disables the account and deletes its sessions while retaining submission history. Admins cannot block, demote or delete their own account. Students and mentors cannot access user management. Password hashes and credentials are never returned.

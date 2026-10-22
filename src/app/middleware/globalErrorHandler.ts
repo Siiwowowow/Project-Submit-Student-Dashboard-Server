@@ -22,6 +22,9 @@ export const globalErrorHandler: ErrorRequestHandler = (error: unknown, _req, re
     if (error.code === "P2002") {
       statusCode = 409;
       message = "This email or repository has already been registered.";
+    } else if (error.code === "P2034") {
+      statusCode = 409;
+      message = "This record changed during your update. Please try again.";
     } else if (error.code === "P2025") {
       statusCode = 404;
       message = "The requested record was not found.";

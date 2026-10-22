@@ -50,6 +50,18 @@ const updateFeedback = catchAsync(async (req, res) => {
   sendResponse(res, { httpCode: 200, success: true, message: "Mentor feedback updated.", data: project });
 });
 
+const updateProject = catchAsync(async (req, res) => {
+  const id = projectIdSchema.parse(req.params.id);
+  const project = await ProjectService.updateProject(id, req.user.userId, req.body);
+  sendResponse(res, { httpCode: 200, success: true, message: "Project updated.", data: project });
+});
+
+const deleteProject = catchAsync(async (req, res) => {
+  const id = projectIdSchema.parse(req.params.id);
+  const result = await ProjectService.deleteProject(id);
+  sendResponse(res, { httpCode: 200, success: true, message: "Project deleted.", data: result });
+});
+
 export const ProjectController = {
-  createProject, getProjects, getMyProjects, getStatistics, getProject, reviewProject, markProject, updateFeedback,
+  createProject, getProjects, getMyProjects, getStatistics, getProject, reviewProject, markProject, updateFeedback, updateProject, deleteProject,
 };
